@@ -1,5 +1,5 @@
 var http = require("http");
-var fetch = require("node-fetch");
+var fetch = require("./node_modules/node-fetch");
 
 var httpServer = http.createServer(async function(req, res) {
     try {
@@ -36,7 +36,7 @@ var httpServer = http.createServer(async function(req, res) {
         console.log(queryData);
 
         if (queryData.url && queryData.user) {
-            let proxRes = await fetch(url);
+            let proxRes = await fetch(queryData.url);
             let arrBuff = await proxRes.arrayBuffer();
             let resBytes = new Uint8Array(arrBuff);
 
