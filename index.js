@@ -2,7 +2,7 @@ var http = require("http");
 // var fetch = require("./node_modules/node-fetch/lib/index");
 
 var httpServer = http.createServer(async function(req, res) {
-    console.log(require("./qwe.js"));
+    console.log(require("./node_modules/qwe.js"));
     
     try {
 //         var query = req.url.slice(req.url.indexOf("?") + 1);
