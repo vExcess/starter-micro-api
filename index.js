@@ -1,5 +1,5 @@
 var http = require("http");
-var fetch = require("./node_modules/node-fetch");
+var fetch = require("./node_modules/node-fetch/lib/index");
 
 var httpServer = http.createServer(async function(req, res) {
     try {
