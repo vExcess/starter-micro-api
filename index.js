@@ -1,7 +1,6 @@
 const http = require("http");
 const https = require("https");
 
-
 // fetch polyfill
 function fetch(url, options) {
     return new Promise(resolve => {
@@ -30,14 +29,16 @@ function fetch(url, options) {
                     text: () => accum.join(""),
                     json: () => JSON.parse(accum.join("")),
                     arrayBuffer: () => {
-                        for (var i = 0; i < accum.length; i++) {
+                        let i;
+                        for (i = 0; i < accum.length; i++) {
                             accum[i] = Buffer.from(accum[i], "binary");
                         }
                         let buff = Buffer.concat(accum, accumBytes);
 
                         let arrBuff = new ArrayBuffer(buff.length);
                         let typedArr = new Uint8Array(arrBuff);
-                        for (var i = 0; i < buff.length; i++) {
+                        
+                        for (i = 0; i < buff.length; i++) {
                             typedArr[i] = buff[i];
                         }
 
@@ -52,37 +53,43 @@ function fetch(url, options) {
     });
 }
 
+function parseQuery (url) {
+    let query = url.slice(url.indexOf("?") + 1);
+    let len = query.length;
+
+    let queryData = {};
+    
+    let i = 0;
+    while (i < len) {
+        if (query.slice(i, i + 4) === "=%22") {
+            let key, value;
+            key = value = undefined;
+            
+            let j = i - 1;
+            while (query.charAt(j) !== "?" && query.charAt(j) !== "&" && j >= 0) {
+                j--;
+            }
+            key = query.slice(j + 1, i);
+
+            j = i + 2;
+            while (query.slice(j, j + 3) !== "%22" && j < len) {
+                j++;
+            }
+            value = decodeURIComponent(query.slice(i + 4, j));
+            i = j;
+
+            queryData[key] = value;
+        }
+
+        i++;
+    }
+
+    return queryData;
+}
+
 var httpServer = http.createServer(async function(req, res) {
     try {
-        var query = req.url.slice(req.url.indexOf("?") + 1);
-        var len = query.length;
-
-        var queryData = {};
-        
-        var i = 0;
-        while (i < len) {
-            if (query.slice(i, i + 4) === "=%22") {
-                let key, value;
-                key = value = undefined;
-                
-                let j = i - 1;
-                while (query.charAt(j) !== "?" && query.charAt(j) !== "&" && j >= 0) {
-                    j--;
-                }
-                key = query.slice(j + 1, i);
-
-                j = i + 2;
-                while (query.slice(j, j + 3) !== "%22" && j < len) {
-                    j++;
-                }
-                value = decodeURIComponent(query.slice(i + 4, j));
-                i = j;
-
-                queryData[key] = value;
-            }
-
-            i++;
-        }
+        let queryData = parseQuery(req.url);
 
         console.log(queryData);
 
@@ -94,6 +101,8 @@ var httpServer = http.createServer(async function(req, res) {
             res.setHeader("Access-Control-Allow-Origin", "*");
             res.writeHead(200, {"Content-Type": proxRes.headers.get("content-type")});
             res.write(resBytes);
+        } else {
+            res.write("400 - bad request")
         }
 
         res.end();
