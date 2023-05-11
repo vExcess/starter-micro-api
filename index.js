@@ -48,66 +48,81 @@ function fetch(url, options) {
             });
         }
 
-        var protocol = url.startsWith("https:") ? https : http;
-        protocol.get(url, responseCallback).on("error", console.error);
+        let protocol = url.startsWith("https:") ? https : http;
+        if (options.method.toLowerCase() === "post") {
+            
+            protocol.request({
+                hostname: url.split("/")[2],
+                port: 80,
+                path: "/" + url.split("/").slice(3).join("/"),
+                method: "POST",
+                headers: options.headers
+            }, responseCallback).on("error", console.error);
+        } else {
+            protocol.get(url, responseCallback).on("error", console.error);
+        }
     });
 }
 
-function parseQuery (url) {
-    let query = url.slice(url.indexOf("?") + 1);
-    let len = query.length;
-
-    let queryData = {};
-    
-    let i = 0;
-    while (i < len) {
-        if (query.slice(i, i + 4) === "=%22") {
-            let key, value;
-            key = value = undefined;
-            
-            let j = i - 1;
-            while (query.charAt(j) !== "?" && query.charAt(j) !== "&" && j >= 0) {
-                j--;
+function parseQuery(url) {
+    let quesIdx = url.indexOf("?");
+    if (quesIdx === -1) {
+        return {};
+    } else {
+        let end = url.slice(quesIdx + 1);
+        if (end.length > 2) {
+            let vars = end.split("&");
+            let keys = {};
+            for (var i = 0; i < vars.length; i++) {
+                var eqIdx = vars[i].indexOf("=");
+                vars[i] = [
+                    decodeURIComponent(vars[i].slice(0, eqIdx)),
+                    decodeURIComponent(vars[i].slice(eqIdx + 1))
+                ];
+                var number = Number(vars[i][1]);
+                if (!Number.isNaN(number)) {
+                    vars[i][1] = number;
+                }
+                keys[vars[i][0]] = vars[i][1];
             }
-            key = query.slice(j + 1, i);
-
-            j = i + 2;
-            while (query.slice(j, j + 3) !== "%22" && j < len) {
-                j++;
-            }
-            value = decodeURIComponent(query.slice(i + 4, j));
-            i = j;
-
-            queryData[key] = value;
+            return keys;
+        } else {
+            return {};
         }
-
-        i++;
     }
-
-    return queryData;
 }
 
-var httpServer = http.createServer(async function(req, res) {
+const httpServer = http.createServer(async (req, res) => {
     try {
-        let queryData = parseQuery(req.url);
+        if (req.url.startsWith("/fetch?")) {
+            let queryData = parseQuery(req.url);
+            if (queryData.url) {
+                queryData.url = Buffer.from(queryData.url, "base64").toString();
+                console.log(queryData);
 
-        console.log(queryData);
-
-        if (queryData.url && queryData.user) {
-            let proxRes = await fetch(queryData.url);
-            let arrBuff = await proxRes.arrayBuffer();
-            let resBytes = new Uint8Array(arrBuff);
-
-            res.setHeader("Access-Control-Allow-Origin", "*");
-            res.writeHead(200, {"Content-Type": proxRes.headers.get("content-type")});
-            res.write(resBytes);
+                let sendHeaders = {};
+                try {
+                    sendHeaders = JSON.stringify(queryData.headers ?? "{}");
+                } catch (e) {}
+                let proxRes = await fetch(queryData.url, {
+                    method: queryData.method ?? "GET",
+                    headers: sendHeaders,
+                    body: queryData.body
+                });
+                res.setHeader("Access-Control-Allow-Origin", "*");
+                res.writeHead(200, proxRes.headers);
+                res.write(new Uint8Array(await proxRes.arrayBuffer()));
+                res.end();
+            } else {
+                res.end();
+            }
         } else {
-            res.write("400 - bad request")
+            res.write("Server Online!");
+            res.end();
         }
-
-        res.end();
     } catch (err) {
         console.log(err);
+        res.end();
     }
 });
 
